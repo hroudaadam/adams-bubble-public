@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="4.3.2">Jekyll</generator><link href="/feed.xml" rel="self" type="application/atom+xml" /><link href="/" rel="alternate" type="text/html" /><updated>2023-08-18T17:03:48+02:00</updated><id>/feed.xml</id><title type="html">Adam’s Bubble</title><author><name>Adam Hrouda</name><email>hroudaadam@gmail.com</email></author><entry><title type="html">StartUp screen pattern in Canvas Apps</title><link href="/posts/StartUp-screen-pattern" rel="alternate" type="text/html" title="StartUp screen pattern in Canvas Apps" /><published>2023-08-18T11:00:00+02:00</published><updated>2023-08-18T11:00:00+02:00</updated><id>/posts/StartUp%20screen%20pattern</id><content type="html" xml:base="/posts/StartUp-screen-pattern"><![CDATA[<p><em>Before you continue in reading the article, I would like to point out that it already assumes certain knowledge of Power Apps concepts.</em></p>
+
+<p>There are currently several options in Canvas Apps to trigger certain logic when the application starts. We have <code class="language-html highlighter-rouge">App.OnStart</code>, <code class="language-html highlighter-rouge">App.StartScreen</code> and <code class="language-html highlighter-rouge">Screen.OnVisible</code>. Beyond that, there are a few settings associated with these formulas. How to make sense of all this? 🤯 And how should the data be loaded when the app starts? Let’s take a look.
+<!--excerpt--></p>
+
+<p>Imagine a simple <strong>request approval application</strong>. We have two user roles - approver and requester. Both roles need common data to be loaded when they run the application – a list of request types, application styling and navigation menu items. In addition, each role needs to be redirected to a different initial screen - the approver wants to see a list-view of their approvals and the requester wants to see a list-view of their requests. Related to this is the need for each to load different data when the application starts - the approver will load the requests that are pending his approval and the requester will load the requests he has created.</p>
+
+<p>First, let’s look at the simplest part. <strong>Where to load screen-related data?</strong> The first option is <code class="language-html highlighter-rouge">App.OnStart</code>. In order to load the data only if the user has a certain role, a condition similar to this would have to be added.</p>
+
+<figure class="highlight"><pre><code class="language-javascript" data-lang="javascript"><span class="c1">// App.OnStart =</span>
+<span class="nc">Switch</span><span class="p">(</span>
+    <span class="nx">varCurrentUser</span><span class="p">.</span><span class="nx">role</span><span class="p">,</span>
+    <span class="dl">"</span><span class="s2">approver</span><span class="dl">"</span><span class="p">,</span>
+    <span class="nc">Set</span><span class="p">(</span><span class="nx">varApprovals</span><span class="p">,</span> <span class="nc">Filter</span><span class="p">(</span><span class="nx">Approvals</span><span class="p">,</span> <span class="nx">Approver</span> <span class="o">=</span> <span class="nx">varCurrentUser</span><span class="p">.</span><span class="nx">Email</span><span class="p">),</span>
+    <span class="dl">"</span><span class="s2">requester</span><span class="dl">"</span><span class="p">,</span>
+    <span class="nc">Set</span><span class="p">(</span><span class="nx">varRequests</span><span class="p">,</span> <span class="nc">Filter</span><span class="p">(</span><span class="nx">Approvals</span><span class="p">,</span> <span class="nx">Requester</span> <span class="o">=</span> <span class="nx">varCurrentUser</span><span class="p">.</span><span class="nx">Email</span><span class="p">)</span>
+<span class="p">);</span></code></pre></figure>
+
+<p>It will work, of course, but once there are more roles in the application and more requests to load screen-related data, <code class="language-html highlighter-rouge">App.OnStart</code> will be very messy. Besides, data that is only related to one screen is stored in a global variable, that’s not right either.
+Let’s try it another way. Let the data be loaded only in the <code class="language-html highlighter-rouge">Screen.OnVisible</code> formula for a specific screen. And instead of a global variable, let’s use a context variable so that the data is <strong>only available in the required scope</strong>.</p>
+
+<figure class="highlight"><pre><code class="language-javascript" data-lang="javascript"><span class="c1">// scr_Approvals.OnVisible = </span>
+<span class="nc">UpdateContext</span><span class="p">({</span>
+    <span class="na">ctxApprovals</span><span class="p">:</span> <span class="nc">Filter</span><span class="p">(</span><span class="nx">Approvals</span><span class="p">,</span> <span class="nx">Approver</span> <span class="o">=</span> <span class="nx">varCurrentUser</span><span class="p">.</span><span class="nx">Email</span><span class="p">)</span>
+<span class="p">});</span>
+
+<span class="c1">// scr_Requests.OnVisible = </span>
+<span class="nc">UpdateContext</span><span class="p">({</span>
+    <span class="na">ctxApprovals</span><span class="p">:</span> <span class="nc">Filter</span><span class="p">(</span><span class="nx">Approvals</span><span class="p">,</span> <span class="nx">Requester</span> <span class="o">=</span> <span class="nx">varCurrentUser</span><span class="p">.</span><span class="nx">Email</span><span class="p">)</span>
+<span class="p">});</span></code></pre></figure>
+
+<p>Next, we will look at where to decide <strong>what screen the user should be redirected to</strong>. Previously, the <code class="language-html highlighter-rouge">Navigate</code> function in <code class="language-html highlighter-rouge">App.OnStart</code> was used. This is now impossible due to the <em>‘Enable Navigate function in App.OnStart’</em> setting, which is disabled as <a href="https://powerapps.microsoft.com/en-us/blog/app-startscreen-a-new-declarative-alternative-to-navigate-in-app-onstart/">recommended</a>. Instead, the <code class="language-html highlighter-rouge">App.StartScreen</code> property is available in which the following evaluation can be performed.</p>
+
+<figure class="highlight"><pre><code class="language-javascript" data-lang="javascript"><span class="c1">// App.StartScreen =</span>
+<span class="nc">Switch</span><span class="p">(</span>
+    <span class="nc">LookUp</span><span class="p">(</span><span class="nx">Users</span><span class="p">,</span> <span class="nx">Email</span> <span class="o">=</span> <span class="nc">User</span><span class="p">().</span><span class="nx">Email</span><span class="p">).</span><span class="nx">Role</span><span class="p">,</span>
+    <span class="dl">"</span><span class="s2">approver</span><span class="dl">"</span><span class="p">,</span>
+    <span class="nx">scr_Approvals</span><span class="p">,</span>
+    <span class="dl">"</span><span class="s2">requester</span><span class="dl">"</span><span class="p">,</span>
+    <span class="nx">scr_Requests</span>
+<span class="p">)</span></code></pre></figure>
+
+<p>But here comes <strong>another problem</strong>, what if we want to store the user role in a variable for later use. <strong>This is not possible</strong>, because <code class="language-html highlighter-rouge">App.StartScreen</code> is not a behavioral formula, so we cannot use the <code class="language-html highlighter-rouge">Set</code> function. However, we can’t set a variable in <code class="language-html highlighter-rouge">App.OnStart</code> and use it in <code class="language-html highlighter-rouge">App.StartScreen</code> either, because <code class="language-html highlighter-rouge">App.StartScreen</code> doesn’t support global variables. Therefore, it is necessary to perform <code class="language-html highlighter-rouge">LookUp</code> twice, once to evaluate <code class="language-html highlighter-rouge">App.StartScreen</code> and once to store it in a variable. That doesn’t sound too good, does it? 🤨</p>
+
+<p>Before I present the solution for the variables and <code class="language-html highlighter-rouge">App.StartScreen</code>, let’s take a look at <strong>how to retrieve data common to the entire application</strong>. Of course, this data should be stored in a global variable and we can use the <code class="language-html highlighter-rouge">App.OnStart</code>. Which would look like this.</p>
+
+<figure class="highlight"><pre><code class="language-javascript" data-lang="javascript"><span class="c1">// App.OnStart =</span>
+<span class="nc">Set</span><span class="p">(</span>
+    <span class="nx">varApprovalType</span><span class="p">,</span>
+    <span class="nc">Table</span><span class="p">(...)</span>
+<span class="p">);</span>
+<span class="nc">Set</span><span class="p">(</span>
+    <span class="nx">varNavigationMenu</span><span class="p">,</span>
+    <span class="nc">Table</span><span class="p">(...)</span>
+<span class="p">);</span></code></pre></figure>
+
+<p>It looks good, but if you need to load <strong>large amounts of data</strong>, there will be a problem. It will take users quite a long time to start the application (see <em>‘Time to first screen’</em> in the <a href="https://powerapps.microsoft.com/en-us/blog/powerapps-app-performance-report/">application analytics report</a>). However, this can be solved by enabling the <em>‘Use non-blocking OnStart rule’</em> setting. What this does is that it will run <code class="language-html highlighter-rouge">App.OnStart</code> and <code class="language-html highlighter-rouge">Screen.OnVisible</code> formulas in <strong>parallel</strong> when the app starts. If the setting is turned off, it always waits for <code class="language-html highlighter-rouge">App.OnStart</code> to finish before it starts evaluating <code class="language-html highlighter-rouge">Screen.OnVisible</code> - this is when the <em>‘Time to first screen’</em> is increased.</p>
+
+<p>It almost looks like the <em>‘Use non-blocking OnStart rule’</em> will save us, but we might run into another problem. Let’s go back to our approval app and extend it with user groups. We want the approver to be able to <strong>see requests from other approvers in their group</strong> (e.g. HR). The user group should be stored in a global variable, so it can be used in other places in the application. Let’s do the following.</p>
+
+<figure class="highlight"><pre><code class="language-javascript" data-lang="javascript"><span class="c1">// App.OnStart =</span>
+<span class="nc">Set</span><span class="p">(</span>
+    <span class="nx">varCurrentUser</span><span class="p">,</span>
+    <span class="nc">LookUp</span><span class="p">(</span><span class="nx">Users</span><span class="p">,</span> <span class="nx">Email</span> <span class="o">=</span> <span class="nc">User</span><span class="p">().</span><span class="nx">Email</span><span class="p">)</span>
+<span class="p">);</span>
+
+<span class="c1">// scr_Approvals.OnVisible = </span>
+<span class="nc">UpdateContext</span><span class="p">({</span>
+    <span class="na">ctxApprovals</span><span class="p">:</span> <span class="nc">Filter</span><span class="p">(</span><span class="nx">Approvals</span><span class="p">,</span> <span class="nx">Approver</span><span class="p">.</span><span class="nx">Group</span> <span class="o">=</span> <span class="nx">varCurrentUser</span><span class="p">.</span><span class="nx">Group</span><span class="p">)</span>
+<span class="p">});</span></code></pre></figure>
+
+<p>Do you see the problem? 🤔 <code class="language-html highlighter-rouge">scr_Approvals.OnVisible</code> depends on the <code class="language-html highlighter-rouge">varCurrentUser</code> variable that is set in <code class="language-html highlighter-rouge">App.OnStart</code>. But! <code class="language-html highlighter-rouge">scr_Approvals.OnVisible</code> and <code class="language-html highlighter-rouge">App.OnStart</code> are evaluated in <strong>parallel</strong>, so we may have a situation where <code class="language-html highlighter-rouge">scr_Approvals.OnVisible</code> starts evaluating and <code class="language-html highlighter-rouge">varCurrentUser</code> <strong>doesn’t contain data yet</strong>.</p>
+
+<p>To give you an idea, I am attaching my little experiment 🧪</p>
+
+<figure class="highlight"><pre><code class="language-javascript" data-lang="javascript"><span class="p">[</span><span class="mi">8</span><span class="p">:</span><span class="mi">02</span><span class="p">:</span><span class="mi">38</span><span class="p">]</span> <span class="nx">App</span><span class="p">.</span><span class="nx">OnStart</span><span class="p">:</span>      <span class="nx">Entering</span>
+<span class="p">[</span><span class="mi">8</span><span class="p">:</span><span class="mi">02</span><span class="p">:</span><span class="mi">38</span><span class="p">]</span> <span class="nx">App</span><span class="p">.</span><span class="nx">OnStart</span><span class="p">:</span>      <span class="nx">Fetching</span> <span class="nx">data</span>
+<span class="p">[</span><span class="mi">8</span><span class="p">:</span><span class="mi">02</span><span class="p">:</span><span class="mi">38</span><span class="p">]</span> <span class="nx">Screen</span><span class="p">.</span><span class="nx">OnVisible</span><span class="p">:</span> <span class="nx">Entering</span>        <span class="c1">// Screen.OnVisible is being evaluated before App.OnStart has finished</span>
+<span class="p">[</span><span class="mi">8</span><span class="p">:</span><span class="mi">02</span><span class="p">:</span><span class="mi">38</span><span class="p">]</span> <span class="nx">Screen</span><span class="p">.</span><span class="nx">OnVisible</span><span class="p">:</span> <span class="nx">Fetching</span> <span class="nx">data</span>
+<span class="p">[</span><span class="mi">8</span><span class="p">:</span><span class="mi">02</span><span class="p">:</span><span class="mi">40</span><span class="p">]</span> <span class="nx">App</span><span class="p">.</span><span class="nx">OnStart</span><span class="p">:</span>      <span class="nx">Data</span> <span class="nx">fetched</span>    <span class="c1">// continue to evaluate App.OnStart</span>
+<span class="p">[</span><span class="mi">8</span><span class="p">:</span><span class="mi">02</span><span class="p">:</span><span class="mi">40</span><span class="p">]</span> <span class="nx">App</span><span class="p">.</span><span class="nx">OnStart</span><span class="p">:</span>      <span class="nx">Leaving</span>
+<span class="p">[</span><span class="mi">8</span><span class="p">:</span><span class="mi">02</span><span class="p">:</span><span class="mi">40</span><span class="p">]</span> <span class="nx">Screen</span><span class="p">.</span><span class="nx">OnVisible</span><span class="p">:</span> <span class="nx">Data</span> <span class="nx">fetched</span>
+<span class="p">[</span><span class="mi">8</span><span class="p">:</span><span class="mi">02</span><span class="p">:</span><span class="mi">40</span><span class="p">]</span> <span class="nx">Screen</span><span class="p">.</span><span class="nx">OnVisible</span><span class="p">:</span> <span class="nx">Leaving</span></code></pre></figure>
+
+<p>Finally, we come to the <strong>StartUp screen pattern</strong> that aims to solve most of the mentioned problems. This pattern is based on omitting the <code class="language-html highlighter-rouge">App.OnStart</code> formula, thus reducing the <em>‘Time to first screen’</em> to a minimum. Instead, a new screen <code class="language-html highlighter-rouge">scr_StartUp</code> will be created, which will be set as <code class="language-html highlighter-rouge">App.StartScreen</code>. All common variables will be set in the <code class="language-html highlighter-rouge">scr_StartUp.OnVisible</code> formula. The advantage is that at this point the <strong>app is already loaded</strong> and even though the data is still loading, you can already <strong>show some part of the interface</strong> to the user. Once everything in <code class="language-html highlighter-rouge">scr_StartUp.OnVisible</code> has been processed user must <strong>redirect to the actual application screen</strong>. Unfortunately, you cannot use the <code class="language-html highlighter-rouge">Navigate</code> function in <code class="language-html highlighter-rouge">Screen.OnVisible</code> either. So you have to do something else. Fortunately, members of the <a href="https://powerusers.microsoft.com/t5/Power-Apps-Community/ct-p/PowerApps1">PowerApps community</a> 💜 have already figured this out - just use <code class="language-html highlighter-rouge">Timer</code> named <code class="language-html highlighter-rouge">tim_StartUp</code>, which has following configuration.</p>
+
+<p>Alse I would like to mention that you actualy can disable <code class="language-html highlighter-rouge">App.OnStart</code> property off in the  settings 💡</p>
+
+<figure class="highlight"><pre><code class="language-javascript" data-lang="javascript"><span class="c1">// scr_StartUp.OnVisible (last line!)</span>
+<span class="nc">UpdateContext</span><span class="p">({</span>
+    <span class="na">ctxStartUpTimer</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+    <span class="na">ctxStartScreen</span><span class="p">:</span> <span class="nx">scr_Approvals</span>
+<span class="p">});</span>
+
+<span class="c1">// tim_StartUp.Start &amp; tim_StartUp.AutoStart</span>
+<span class="nx">ctxStartUpTimer</span>
+
+<span class="c1">// tim_StartUp.Repeat &amp; tim_StartUp.Reset &amp; tim_StartUp.Reset</span>
+<span class="kc">false</span>
+
+<span class="c1">// tim_StartUp.OnTimerStart</span>
+<span class="nc">UpdateContext</span><span class="p">({</span>
+    <span class="na">ctxStartUpTimer</span><span class="p">:</span> <span class="kc">false</span>
+<span class="p">});</span>
+<span class="nc">Navigate</span><span class="p">(</span><span class="nx">ctxStartScreen</span><span class="p">);</span></code></pre></figure>
+
+<p>To make this pattern clearer I am attaching a diagram.</p>
+
+<p><img src="/assets/images/posts/2023-08-18-StartUp screen pattern/diagram.svg" alt="StartUp screen pattern diagram" /></p>
+
+<p>To make it easier for the user to work with the application, don’t forget to add indicators on <code class="language-html highlighter-rouge">scr_StartUp</code> that the data is still being loaded. Such as progress overlay.</p>
+
+<p>Let’s quickly return to the problem with <code class="language-html highlighter-rouge">App.StartScreen</code>. This can be solved very easily using the <strong>StartUp screen pattern</strong>. Just modify the above code to the following. This allows us to <strong>use global variables when selecting the intial screen</strong>.</p>
+
+<figure class="highlight"><pre><code class="language-javascript" data-lang="javascript"><span class="c1">// scr_StartUp.OnVisible (last line!)</span>
+<span class="nc">UpdateContext</span><span class="p">({</span>
+    <span class="na">ctxStartUpTimer</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+    <span class="na">ctxStartScreen</span><span class="p">:</span> <span class="nc">Switch</span><span class="p">(</span>
+        <span class="nx">varCurrentUser</span><span class="p">.</span><span class="nx">Role</span><span class="p">,</span>
+        <span class="dl">"</span><span class="s2">approver</span><span class="dl">"</span><span class="p">,</span>
+        <span class="nx">scr_Approvals</span><span class="p">,</span>
+        <span class="dl">"</span><span class="s2">requester</span><span class="dl">"</span><span class="p">,</span>
+        <span class="nx">scr_Requests</span>
+    <span class="p">)</span>
+<span class="p">});</span></code></pre></figure>
+
+<p>This design pattern therefore helps to <strong>solve the problem of loading data when the application starts</strong>. Let’s summarize its advantages:</p>
+<ul>
+  <li><strong>Application starts very quickly</strong> (minimizing the <em>‘Time to first screen’</em> )</li>
+  <li><strong>Better code layout</strong> - we no longer have <code class="language-html highlighter-rouge">App.OnStart</code>, <code class="language-html highlighter-rouge">App.StartScreen</code> and <code class="language-html highlighter-rouge">scr_Initial.OnVisible</code>, but only <code class="language-html highlighter-rouge">scr_StartUp.OnVisible</code> and <code class="language-html highlighter-rouge">scr_Initial.OnVisible</code></li>
+  <li><strong>Cleaner code</strong> - setting the global variables in <code class="language-html highlighter-rouge">scr_StartUp.OnVisible</code> and everything else only on the specific screens</li>
+</ul>
+
+<p>Finally, I would like to recommend that when creating a new application, start by implementing the <strong>StartUp screen pattern</strong>. This will make the work that would be required for later modifications easier. The exception, of course, are applications that have only one screen.</p>
+
+<p>A template using the <strong>StartUp screen pattern</strong> is available at this <a href="">link</a>.</p>]]></content><author><name>Adam Hrouda</name><email>hroudaadam@gmail.com</email></author><category term="power-platform" /><category term="canvas-apps" /><summary type="html"><![CDATA[How should the data be loaded when the app starts? When to use App.StartScree, App.OnStart, Screen.OnVisible? Is there a more elagant way to load application data?]]></summary></entry></feed>
