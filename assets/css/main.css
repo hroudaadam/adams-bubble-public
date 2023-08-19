@@ -11954,7 +11954,7 @@ footer {
   font-size: 0.8rem;
 }
 
-.post-content a {
+a {
   color: var(--bs-body-color);
 }
 
