@@ -1945,7 +1945,7 @@ progress {
     --bs-gutter-y: 3rem;
   }
 }
-.table {
+.table, .post-content table {
   --bs-table-color-type: initial;
   --bs-table-bg-type: initial;
   --bs-table-color-state: initial;
@@ -1965,17 +1965,17 @@ progress {
   vertical-align: top;
   border-color: var(--bs-table-border-color);
 }
-.table > :not(caption) > * > * {
+.table > :not(caption) > * > *, .post-content table > :not(caption) > * > * {
   padding: 0.5rem 0.5rem;
   color: var(--bs-table-color-state, var(--bs-table-color-type, var(--bs-table-color)));
   background-color: var(--bs-table-bg);
   border-bottom-width: var(--bs-border-width);
   box-shadow: inset 0 0 0 9999px var(--bs-table-bg-state, var(--bs-table-bg-type, var(--bs-table-accent-bg)));
 }
-.table > tbody {
+.table > tbody, .post-content table > tbody {
   vertical-align: inherit;
 }
-.table > thead {
+.table > thead, .post-content table > thead {
   vertical-align: bottom;
 }
 
@@ -1991,10 +1991,10 @@ progress {
   padding: 0.25rem 0.25rem;
 }
 
-.table-bordered > :not(caption) > * {
+.table-bordered > :not(caption) > *, .post-content table > :not(caption) > * {
   border-width: var(--bs-border-width) 0;
 }
-.table-bordered > :not(caption) > * > * {
+.table-bordered > :not(caption) > * > *, .post-content table > :not(caption) > * > * {
   border-width: 0 var(--bs-border-width);
 }
 
@@ -2109,7 +2109,7 @@ progress {
   border-color: var(--bs-table-border-color);
 }
 
-.table-light {
+.table-light, .post-content table thead {
   --bs-table-color: #000;
   --bs-table-bg: #f8f9fa;
   --bs-table-border-color: #dfe0e1;
@@ -11972,6 +11972,11 @@ a {
   .post-content img {
     max-width: 70%;
   }
+}
+.post-content img {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /*# sourceMappingURL=main.css.map */
